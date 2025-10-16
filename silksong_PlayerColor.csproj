@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+	  <RestoreAdditionalProjectSources>
+		  https://nuget.bepinex.dev/v3/index.json
+	  </RestoreAdditionalProjectSources>
+	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	  <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BepInEx.Analyzers" Version="1.0.8" PrivateAssets="all" />
+		<PackageReference Include="BepInEx.Core" Version="5.4.21" />
+		<PackageReference Include="BepInEx.PluginInfoProps" Version="1.1.0" />
+		<PackageReference Include="UnityEngine.Modules" Version="6000.0.50" IncludeAssets="compile" />
+		<!--If you're unable resolve this dependency, check that you're using the nuget v3 package feed instead of v2.-->
+		<PackageReference Include="Silksong.GameLibs" Version="1.0.2-silksong1.0.28497" />
+	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	  <Exec Command="python &quot;$(SolutionDir)utility\post_build.py&quot; &quot;$(TargetPath)&quot;" />
+	</Target>
+</Project>
