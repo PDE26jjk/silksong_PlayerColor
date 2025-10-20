@@ -19,7 +19,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.U2D;
 
 namespace silksong_PlayerColor {
-    [BepInPlugin("com.PDE26jjk.PlayerColor", "PlayerColor", "0.0.2")]
+    [BepInPlugin("com.PDE26jjk.PlayerColor", "PlayerColor", "0.0.3")]
     public class PlayerColor : BaseUnityPlugin {
         private Harmony? _harmony;
         private static Shader PlayerColorShader;
@@ -117,6 +117,7 @@ namespace silksong_PlayerColor {
         private void InitMaskTexture() {
             Tex2atlas.Clear();
             atlas2Mask.Clear();
+            atlas2MaskPath.Clear();
             var maskPath = Path.Combine(Application.dataPath, "Mods", "Mask");
             if (maskPath != null) {
                 foreach (string dir in Directory.GetDirectories(maskPath)) {
@@ -128,17 +129,17 @@ namespace silksong_PlayerColor {
                     foreach (string atlasPath in Directory.EnumerateFiles(dir, "*.png", SearchOption.TopDirectoryOnly)) {
 
                         if (!File.Exists(atlasPath)) continue;
-
-                        var pngData = File.ReadAllBytes(atlasPath);
-                        var texture = new Texture2D(2, 2);
-                        if (texture.LoadImage(pngData)) {
-                            string fileName = Path.GetFileNameWithoutExtension(atlasPath);
-                            atlas2Mask[dirname + "/" + fileName] = texture;
-                            //Debug.Log(dirname + "/" + fileName);
-                        }
+                        string fileName = Path.GetFileNameWithoutExtension(atlasPath);
+                        atlas2MaskPath[dirname + "/" + fileName] = atlasPath;
+                        //var pngData = File.ReadAllBytes(atlasPath);
+                        //var texture = new Texture2D(2, 2);
+                        //if (texture.LoadImage(pngData)) {
+                        //    atlas2Mask[dirname + "/" + fileName] = texture;
+                        //    //Debug.Log(dirname + "/" + fileName);
+                        //}
                     }
                 }
-            MaskTexureInited = true;
+                MaskTexureInited = true;
             }
         }
 
@@ -157,6 +158,8 @@ namespace silksong_PlayerColor {
 
         private static Dictionary<GameObject, Material> OverrideMaterials = new();
         private static HashSet<GameObject> otherObjs = new();
+        private static Dictionary<string, string> atlas2MaskPath = new();
+
         //private static Dictionary<GameObject, Material> OriginalMaterials = new();
         class HeroSprite_Pather {
             [HarmonyPostfix]
@@ -181,7 +184,7 @@ namespace silksong_PlayerColor {
 
                 if (!flag) {
 
-                    if (atlas2Mask.ContainsKey(atlas)) {
+                    if (atlas2MaskPath.ContainsKey(atlas)) {
                         flag = true;
                         //Debug.Log("has key--------: " + obj.name + ": " + atlas);
                     }
@@ -226,8 +229,17 @@ namespace silksong_PlayerColor {
                 int texId = mainTex.GetInstanceID();
                 bool hasTexture = Tex2atlas.ContainsKey(texId);
                 if (hasTexture) {
+                    atlas = Tex2atlas[texId];
+                    if (!atlas2Mask.ContainsKey(atlas) && atlas2MaskPath.ContainsKey(atlas)) {
+                        var pngData = File.ReadAllBytes(atlas2MaskPath[atlas]);
+                        var texture = new Texture2D(2, 2);
+                        if (texture.LoadImage(pngData)) {
+                            atlas2Mask[atlas] = texture;
+                        }
+                    }
+
                     //Debug.Log(obj.name +" : "+ Tex2atlas[texId]);
-                    atlas2Mask.TryGetValue(Tex2atlas[texId], out maskTex);
+                    atlas2Mask.TryGetValue(atlas, out maskTex);
                 }
                 else {
                     return;
