@@ -1,22 +1,12 @@
-﻿using System;
-using BepInEx;
-using BepInEx.Logging;
+﻿using BepInEx;
 using HarmonyLib;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
-using HutongGames.PlayMaker.Actions;
-using System.Collections;
-using InControl;
-using UnityEngine.Rendering;
 using System.IO;
-using UnityEngine.UIElements;
-using Mono.Unix.Native;
 using UnityEngine.SceneManagement;
-using UnityEngine.U2D;
+using System;
+using System.Reflection;
 
 namespace silksong_PlayerColor {
     [BepInPlugin("com.PDE26jjk.PlayerColor", "PlayerColor", "0.0.3")]
@@ -131,12 +121,14 @@ namespace silksong_PlayerColor {
                         if (!File.Exists(atlasPath)) continue;
                         string fileName = Path.GetFileNameWithoutExtension(atlasPath);
                         atlas2MaskPath[dirname + "/" + fileName] = atlasPath;
-                        //var pngData = File.ReadAllBytes(atlasPath);
-                        //var texture = new Texture2D(2, 2);
-                        //if (texture.LoadImage(pngData)) {
-                        //    atlas2Mask[dirname + "/" + fileName] = texture;
-                        //    //Debug.Log(dirname + "/" + fileName);
-                        //}
+                        if (Settings.LoadAllTextureAtStart.Value) {
+                            var pngData = File.ReadAllBytes(atlasPath);
+                            var texture = new Texture2D(2, 2);
+                            if (texture.LoadImage(pngData)) {
+                                atlas2Mask[dirname + "/" + fileName] = texture;
+                                //Debug.Log(dirname + "/" + fileName);
+                            }
+                        }
                     }
                 }
                 MaskTexureInited = true;
@@ -161,6 +153,14 @@ namespace silksong_PlayerColor {
         private static Dictionary<string, string> atlas2MaskPath = new();
 
         //private static Dictionary<GameObject, Material> OriginalMaterials = new();
+
+        private static readonly Color _OriginalColor = Settings.ParseColor("#79404B");
+        public class PlayerColorStruct {
+            public Color Color;
+            public float Saturation;
+            public float Brightness;
+        }
+
         class HeroSprite_Pather {
             [HarmonyPostfix]
             [HarmonyPatch(typeof(tk2dSprite), "UpdateMaterial")]
@@ -256,17 +256,52 @@ namespace silksong_PlayerColor {
                     DummyMask ??= CreateSinglePixelBlackTexture();
                     mat.SetTexture(_MaskTexProp, DummyMask);
                 }
-                mat.SetColor(_FlashColorProp, ori_mat.GetColor(_FlashColorProp));
-                //mat.SetColor(_FlashColorProp, ori_mat.GetColor(_FlashColorProp));
-                mat.SetFloat(_FlashAmountProp, ori_mat.GetFloat(_FlashAmountProp));
-                mat.SetFloat("t1", Settings.Brightness.Value);
-                mat.SetFloat("t2", Settings.Saturation.Value);
-                mat.SetColor("_MaskFromColor1", Settings.Color1.Value);
-                mat.SetColor("_MaskColor1", Settings.Color2.Value);
+                if (ori_mat.HasColor(_FlashColorProp)) {
+                    mat.SetColor(_FlashColorProp, ori_mat.GetColor(_FlashColorProp));
+                    //mat.SetColor(_FlashColorProp, ori_mat.GetColor(_FlashColorProp));
+                    mat.SetFloat(_FlashAmountProp, ori_mat.GetFloat(_FlashAmountProp));
+                }
+                PlayerColorStruct playerColor = GetPlayerColor(obj);
+                mat.SetFloat("t1", playerColor.Brightness);
+                mat.SetFloat("t2", playerColor.Saturation);
+                mat.SetColor("_MaskFromColor1", _OriginalColor);
+                mat.SetColor("_MaskColor1", playerColor.Color);
                 //component.SetMaterials()
                 if (renderer.sharedMaterial != mat) {
                     renderer.sharedMaterial = mat;
                 }
+            }
+            static Type? _HeroProxyType;
+            static MethodInfo? _GetClientPlayerColorStructInfo;
+            static bool hasOnlineModule = true;
+            static PlayerColorStruct _DefaultPlayerColorStruct = new();
+            private static PlayerColorStruct GetPlayerColor(GameObject obj) {
+                if (obj.name.StartsWith("HeroProxySprite_") && hasOnlineModule) {
+                    ulong clientID = ulong.Parse(obj.name.Split('_')[1]);
+                    if (_HeroProxyType == null) {
+                        try {
+                            _HeroProxyType = Type.GetType("silksong_OnlineFighting.HeroProxy, silksong_OnlineFighting");
+                            _GetClientPlayerColorStructInfo = _HeroProxyType.GetMethod("GetClientPlayerColorStruct", BindingFlags.Public | BindingFlags.Static);
+                        }
+                        catch (Exception) {
+                            hasOnlineModule = false;
+                            Debug.Log("Online module not installed.");
+                        }
+                    }
+                    if (_GetClientPlayerColorStructInfo != null) {
+                        var playerColor = _GetClientPlayerColorStructInfo.Invoke(null, new object[] { clientID });
+                        unsafe {
+                            return *(PlayerColorStruct*)&playerColor;
+                        }
+                    }
+
+
+                }
+                _DefaultPlayerColorStruct.Color = Settings.Color2.Value;
+                _DefaultPlayerColorStruct.Brightness = Settings.Brightness.Value;
+                _DefaultPlayerColorStruct.Saturation = Settings.Saturation.Value;
+                return _DefaultPlayerColorStruct;
+
             }
         }
     }

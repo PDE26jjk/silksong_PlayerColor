@@ -39,17 +39,23 @@ namespace silksong_PlayerColor {
         [Range(0f, 2f)]
         public static ConfigEntry<float> Saturation { get; private set; }
 
-        [Section("Global")]
-        [Description("EN", "Origin Color", "Origin color of cloak")]
-        [Description("ZH", "原始颜色", "斗篷的原始颜色")]
-        [DefaultValue("#79404B")]
-        public static ConfigEntry<Color> Color1 { get; private set; }
+        //[Section("Global")]
+        //[Description("EN", "Origin Color", "Origin color of cloak")]
+        //[Description("ZH", "原始颜色", "斗篷的原始颜色")]
+        //[DefaultValue("#79404B")]
+        //public static ConfigEntry<Color> Color1 { get; private set; }
   
         [Section("Global")]
         [Description("EN", "Target Color", "Target color of cloak")]
         [Description("ZH", "目标颜色", "斗篷的目标颜色")]
         [DefaultValue("#66ccff")]
         public static ConfigEntry<Color> Color2 { get; private set; }
+
+        [Section("Global")]
+        [Description("EN", "Load all textures at startup", "Whether to load all textures at startup or load them when needed")]
+        [Description("ZH", "启动时加载所有纹理", "是否启动时加载所有纹理，否则在用到时加载")]
+        [DefaultValue(true)]
+        public static ConfigEntry<bool> LoadAllTextureAtStart { get; private set; }
         #endregion
 
 
@@ -193,7 +199,7 @@ namespace silksong_PlayerColor {
             // 默认返回白色
             return Color.white;
         }
-        private static Color ParseColor(string colorString) {
+        public static Color ParseColor(string colorString) {
             // 尝试解析为颜色名称
             if (ColorUtility.TryParseHtmlString(colorString, out Color color)) {
                 return color;
